@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Forest City International School - Dynamic Signage</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+<meta http-equiv="refresh" content="3600">
+<style>
+  :root {
+    --bg-color: #E2E8F0;
+    --header-bg: #FFFFFF; 
+    --card-yellow: #FFC107;
+    --card-red: #FF4B6E;
+    --text-dark: #1E293B;
+    --text-light: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Nunito', sans-serif; background-color: var(--bg-color); color: var(--text-dark); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+  header { background-color: var(--header-bg); color: var(--text-dark); display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 3rem; box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 10; }
+  .logo-area { display: flex; align-items: center; gap: 15px; font-size: 3rem; font-weight: 900; }
+  .school-logo { height: 70px; width: auto; object-fit: contain; }
+  .datetime-area { text-align: right; }
+  .time { font-size: 3.5rem; font-weight: 900; line-height: 1; color: var(--card-yellow); text-shadow: 1px 2px 5px rgba(0,0,0,0.2); }
+  .date { font-size: 1.5rem; font-weight: 700; margin-top: 5px; color: var(--text-dark); }
+  .main-content { display: grid; grid-template-columns: 1.6fr 1fr; gap: 1.5rem; padding: 1.5rem; flex: 1; min-height: 0; }
+  .col { display: flex; flex-direction: column; gap: 1.5rem; min-height: 0; }
+  .card { border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  .left-col .photo-section { flex: 1.4; background-color: #1E293B; }
+  .left-col .announce-section { flex: 1; background-color: var(--card-yellow); }
+  .right-col .weather-section { flex: 0 0 auto; background-color: var(--text-light); padding: 1rem; }
+  .right-col .announce-photo-section { flex: 1; background-color: #ffffff; }
+  .drive-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+  .poster-img { object-fit: contain; } 
+  .photo-label { position: absolute; bottom: 0; left: 0; background: rgba(0,0,0,0.7); color: white; padding: 0.8rem 1.5rem; font-size: 1.5rem; font-weight: 700; border-top-right-radius: 20px; z-index: 5; margin: 0; }
+  .notice-label { background: #0A58CA; }
+  .loading-text { color: white; font-size: 2rem; z-index: 1; }
+  .slide { position: absolute; width: 90%; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); opacity: 0; transition: all 0.6s ease; text-align: center; }
+  .slide.active { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .slide-title { font-size: 3.5rem; font-weight: 900; margin-bottom: 0.8rem; }
+  .slide-text { font-size: 2.2rem; font-weight: 700; color: rgba(0,0,0,0.7); }
+  .ticker-wrap { background: var(--card-red); color: var(--text-light); padding: 1.2rem 0; overflow: hidden; white-space: nowrap; flex-shrink: 0; }
+  .ticker { display: inline-block; padding-left: 100%; animation: tickerAnim 35s linear infinite; font-size: 2rem; font-weight: 700; }
+  @keyframes tickerAnim { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
+  .ticker-item { margin-right: 5rem; }
+  .ticker-item strong { color: var(--card-yellow); font-weight: 900; }
+  
+  /* NEW DEBUG STYLE */
+  #debug-log { position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.8); color: white; padding: 5px 10px; font-size: 12px; border-radius: 5px; z-index: 100; display: none; }
+</style>
+</head>
+<body>
+
+  <div id="debug-log">Debug Info</div>
+
+  <header>
+    <div class="logo-area">
+      <img src="https://cats-fc.org/wp-content/uploads/2025/08/cropped-png-web.png" alt="School Logo" class="school-logo">
+      Forest City International School
+    </div>
+    <div class="datetime-area">
+      <div class="time" id="time">00:00</div>
+      <div class="date" id="date">Loading...</div>
+    </div>
+  </header>
+
+  <div class="main-content">
+    <div class="col left-col">
+      <div class="card photo-section">
+        <img id="featured-image" class="drive-img" src="" alt="Featured Image" style="display: none;">
+        <div id="video-wrapper" style="display:none; width: 100%; height: 100%; background: #000;">
+            <div id="featured-video"></div>
+        </div>
+        <div class="photo-label">📸 Featured Moment</div>
+      </div>
+      <div class="card announce-section" id="announce-slider-container">
+        <div class="slide active">
+          <div class="slide-title">⏳ Loading Data...</div>
+          <div class="slide-text">Fetching from Google Sheets</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col right-col">
+      <div class="card weather-section" style="display: block; width: 100%; padding: 0; background: #FFFFFF; overflow: hidden;">
+        <a class="weatherwidget-io" href="https://forecast7.com/en/1d49103d74/johor-bahru/" data-label_1="FOREST CITY" data-label_2="WEATHER" data-font="Nunito" data-icons="Climacons Animated" data-days="3" data-theme="pure" data-textcolor="#1E293B" data-suncolor="#FFC107" data-mooncolor="#FFC107" data-cloudcolor="#1E293B" data-cloudfill="#FFFFFF" data-raincolor="#0A58CA" data-snowcolor="#0A58CA">FOREST CITY WEATHER</a>
+        <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src='https://weatherwidget.io/js/widget.min.js';fjs.parentNode.insertBefore(js,fjs);}}(document,'script','weatherwidget-io-js');</script>
+      </div>
+      <div class="card announce-photo-section">
+        <div id="loading-announce" class="loading-text" style="color:var(--text-dark);">Syncing...</div>
+        <img id="announce-slide-img" class="drive-img poster-img" src="" alt="Announcements" style="opacity: 0; transition: opacity 0.8s ease-in-out;">
+        <div class="photo-label notice-label">📌 Notice Board</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ticker-wrap">
+    <div class="ticker" id="dynamic-ticker">
+      <span class="ticker-item"><strong>Connecting:</strong> Fetching ticker data...</span>
+    </div>
+  </div>
+
+<script>
+    function updateDateTime() {
+      const now = new Date();
+      document.getElementById("time").textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      document.getElementById("date").textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    }
+    setInterval(updateDateTime, 1000);
+    updateDateTime();
+
+    const imgElement = document.getElementById("featured-image");
+    const vidWrapper = document.getElementById("video-wrapper");
+    const photoLabel = document.querySelector(".photo-label");
+    const debugLog = document.getElementById("debug-log");
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwek6QDBjswaVpqEDDkMnIJs092eqkQxSXPmOd1kGWJQ2-wykIxs4QfoRyFVcV0uYo/exec"; 
+    
+    let data = { announceImages: [], announcements: [], tickerItems: [], mediaItems: [] };
+    let announceImgIndex = 0;
+    let sheetTextIndex = 0;
+    let mediaItems = [];
+    let currentIndex = 0;
+    let cycleTimer;
+    let videoFailsafe;
+
+    async function fetchMasterData() {
+      try {
+        const response = await fetch(WEB_APP_URL);
+        data = await response.json();
+        if (data.mediaItems && data.mediaItems.length > 0) {
+          mediaItems = data.mediaItems;
+          playNextMedia();
+        }
+        if (data.announceImages && data.announceImages.length > 0) {
+          document.getElementById("loading-announce").style.display = "none";
+          cycleAnnounceImage();
+          setInterval(cycleAnnounceImage, 25000); 
+        }
+        if (data.announcements && data.announcements.length > 0) {
+          buildSheetSlider();
+          setInterval(cycleSheetText, 8000);
+        }
+        if (data.tickerItems && data.tickerItems.length > 0) {
+          buildTicker();
+        }
+      } catch (e) { console.error(e); }
+    }
+
+    let ytPlayer;
+    let isYtReady = false;
+
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+
+function onYouTubeIframeAPIReady() {
+  ytPlayer = new YT.Player('featured-video', {
+    height: '100%',
+    width: '100%',
+    host: 'https://www.youtube-nocookie.com', // Uses the privacy-enhanced domain
+    playerVars: { 
+      'autoplay': 1, 
+      'controls': 0, 
+      'mute': 1, 
+      'modestbranding': 1, 
+      'rel': 0, 
+      'playsinline': 1,
+      'origin': window.location.origin // Crucial: Tells YouTube who you are
+    },
+    events: {
+      'onReady': () => { isYtReady = true; },
+      'onStateChange': (e) => { 
+        if (e.data === YT.PlayerState.ENDED) { nextMedia(); }
+        if (e.data === YT.PlayerState.PLAYING) { 
+            clearTimeout(videoFailsafe); 
+            debugLog.style.display = "none"; // Hide debug if it works
+        }
+      },
+      'onError': (e) => {
+         debugLog.style.display = "block";
+         debugLog.innerHTML = "YouTube Error: " + e.data + " (Ref: " + document.referrer + ")";
+         setTimeout(nextMedia, 3000); 
+      }
+    }
+  });
+}
+
+    function extractID(url) {
+      const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+      const match = url.match(regExp);
+      return (match && match[7].length == 11) ? match[7] : url;
+    }
+
+    function playNextMedia() {
+      clearTimeout(cycleTimer);
+      clearTimeout(videoFailsafe);
+      const current = mediaItems[currentIndex];
+
+      if (current.type === "video") {
+        imgElement.style.display = "none";
+        vidWrapper.style.display = "block";
+        let vidId = extractID(current.url);
+        
+        if (isYtReady && ytPlayer && ytPlayer.loadVideoById) {
+            ytPlayer.loadVideoById(vidId);
+            // If it doesn't start playing in 5 seconds, skip it
+            videoFailsafe = setTimeout(nextMedia, 5000);
+        } else {
+            setTimeout(playNextMedia, 1000);
+        }
+      } else {
+        vidWrapper.style.display = "none";
+        if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
+        imgElement.style.display = "block";
+        imgElement.src = current.url;
+        cycleTimer = setTimeout(nextMedia, 10000);
+      }
+    }
+
+    function nextMedia() {
+      currentIndex = (currentIndex + 1) % mediaItems.length;
+      playNextMedia();
+    }
+
+    function cycleAnnounceImage() {
+      const imgEl = document.getElementById("announce-slide-img");
+      imgEl.style.opacity = 0;
+      setTimeout(() => {
+        imgEl.src = data.announceImages[announceImgIndex];
+        imgEl.onload = () => { imgEl.style.opacity = 1; };
+        announceImgIndex = (announceImgIndex + 1) % data.announceImages.length;
+      }, 800);
+    }
+
+    function buildSheetSlider() {
+      const container = document.getElementById("announce-slider-container");
+      container.innerHTML = ""; 
+      data.announcements.forEach((ann, idx) => {
+        const slide = document.createElement("div");
+        slide.className = `slide ${idx === 0 ? 'active' : ''}`;
+        slide.innerHTML = `<div class="slide-title">${ann.emoji} ${ann.title}</div><div class="slide-text">${ann.text}</div>`;
+        container.appendChild(slide);
+      });
+    }
+
+    function cycleSheetText() {
+      const slides = document.querySelectorAll("#announce-slider-container .slide");
+      if(!slides.length) return;
+      slides[sheetTextIndex].classList.remove("active");
+      sheetTextIndex = (sheetTextIndex + 1) % slides.length;
+      slides[sheetTextIndex].classList.add("active");
+    }
+
+    function buildTicker() {
+      const tickerContainer = document.getElementById("dynamic-ticker");
+      tickerContainer.innerHTML = ""; 
+      data.tickerItems.forEach(item => {
+        const span = document.createElement("span");
+        span.className = "ticker-item";
+        span.innerHTML = `<strong>${item.category}:</strong> ${item.message}`;
+        tickerContainer.appendChild(span);
+      });
+    }
+
+    fetchMasterData();
+</script>
+</body>
+</html>
